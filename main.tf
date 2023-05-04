@@ -1,31 +1,25 @@
-data "aws_s3_bucket" "test" {
-  bucket = "mybucket"
+resource "aws_iam_role" "app_deploy_role" {
+  name = var.deployRoleName
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = "sts:AssumeRole",
+        Effect = "Allow",
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
 }
 
-data "aws_route53_zone" "test_zone" {
-  name = "test.com."
+resource "aws_lambda_function" "app_lambda" {
+  s3_key        = aws_s3_object.app_item.key
+  s3_bucket     = aws_s3_bucket.app_storing_bucket.bucket
+  role          = aws_iam_role.app_deploy_role.arn
+  handler       = "${var.lambdaFileName}.${var.lambdaFileFunction}"
+  runtime       = var.awsLambdaRuntime
+  function_name = var.lambdaName
 }
 
-resource "aws_route53_record" "example" {
-  zone_id = data.aws_route53_zone.test_zone.id
-  name    = "bucket"
-  type    = "A"
-
-  alias {
-    name    = data.aws_s3_bucket.test.website_domain
-    zone_id = data.aws_s3_bucket.test.hosted_zone_id
-  }
-}
-
-resource "aws_lambda_alias" "test_lambda_alias" {
-  name             = "my_alias"
-  description      = "a sample description"
-  function_name    = aws_lambda_function.lambda_function_test.arn
-  function_version = "1"
-
-  routing_config {
-    additional_version_weights = {
-      "2" = 0.5
-    }
-  }
-}
